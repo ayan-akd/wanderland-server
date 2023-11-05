@@ -7,7 +7,16 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const port = process.env.PORT || 5000;
 
-console.log(process.env.DB_USER);
+//middleware
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+    ],
+    credentials: true,
+  })
+);
+app.use(express.json());
 
 //  MONGODB DATABASE USER PASSWORD
 
@@ -26,10 +35,33 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
-    const blogCollection = client.db(wanderlandDB).collection(blogs);
+    const blogCollection = client.db("wanderlandDB").collection("blogs");
 
+    //get operation
+    app.get("/blogs", async (req, res) => {
+      try {
+        const result = await blogCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
+    //post operation
+    app.post("/blogs", async (req, res) => {
+      try{
+        const newBlog = req.body;
+        const result = await blogCollection.insertOne(newBlog);
+        res.send(result);
+      console.log(result);
+        }
+        catch(error){
+          console.log(error);
+        }
+     
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
