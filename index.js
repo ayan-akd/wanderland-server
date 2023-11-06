@@ -39,6 +39,7 @@ async function run() {
 
     const blogCollection = client.db("wanderlandDB").collection("blogs");
     const wishlistCollection = client.db("wanderlandDB").collection("wishlists");
+    const commentsCollection = client.db("wanderlandDB").collection("comments");
 
     //get operation
     app.get("/blogs", async (req, res) => {
@@ -70,6 +71,18 @@ async function run() {
         res.send(result);
       } catch (error) {
         console.log(error);
+      }
+    });
+
+    app.get("/comments/:blogId", async (req, res) => {
+      try {
+        const blogId = req.params.blogId;
+        const query = { blogId };
+        const comments = await commentsCollection.find(query).toArray();
+        res.send(comments);
+      } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error" });
       }
     });
 
@@ -109,6 +122,15 @@ async function run() {
       }
     });
     
+    app.post("/comments", async (req, res) => {
+      try {
+        const newComment = req.body;
+        const result = await commentsCollection.insertOne(newComment);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    })
     
 
     //Delete operation
@@ -122,6 +144,28 @@ async function run() {
         console.log(error);
       }
     });
+
+    //Update operation
+    app.put("/update/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const data = req.body;
+        const filter = {_id: new ObjectId(id)}
+        const updatedBlog = {
+          $set: {
+            name: data.name,
+            category: data.category,
+            shortDis: data.shortDis,
+            longDis: data.longDis,
+            photo: data.photo,
+          }
+        }
+        const result = await blogCollection.updateOne(filter, updatedBlog);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
