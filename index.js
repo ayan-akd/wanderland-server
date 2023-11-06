@@ -49,6 +49,19 @@ async function run() {
         console.log(error);
       }
     });
+    
+    app.get("/wishlists", async (req, res) => {
+      try {
+        let query = {};
+        if (req.query?.email) {
+          query = { email: req.query.email };
+        }
+        const result = await wishlistCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    });
 
     //post operation
     app.post("/blogs", async (req, res) => {
