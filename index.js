@@ -1,5 +1,5 @@
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 require("dotenv").config();
 const app = express();
@@ -49,7 +49,7 @@ async function run() {
         console.log(error);
       }
     });
-    
+
     app.get("/wishlists", async (req, res) => {
       try {
         let query = {};
@@ -88,6 +88,19 @@ async function run() {
           console.log(error);
         }
     });
+
+    //Delete operation
+    app.delete("/wishlists/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await wishlistCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
