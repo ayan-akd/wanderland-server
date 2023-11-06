@@ -85,6 +85,45 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
+    
+    app.get("/update/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await blogCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    })
+
+    app.get("/featured", async (req, res) => {
+      try {
+        const result = await blogCollection
+          .aggregate([
+            {
+              $addFields: {
+                longDisLength: { $strLenCP: "$longDis" }
+              }
+            },
+            {
+              $sort: { longDisLength: -1 }
+            },
+            {
+              $limit: 10
+            }
+          ])
+          .toArray();
+    
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+    
+    
+    
 
     //post operation
     app.post("/blogs", async (req, res) => {
@@ -158,6 +197,7 @@ async function run() {
             shortDis: data.shortDis,
             longDis: data.longDis,
             photo: data.photo,
+            userPhoto: data.userPhoto,
           }
         }
         const result = await blogCollection.updateOne(filter, updatedBlog);
