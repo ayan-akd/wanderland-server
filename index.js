@@ -38,6 +38,7 @@ async function run() {
     // await client.connect();
 
     const blogCollection = client.db("wanderlandDB").collection("blogs");
+    const wishlistCollection = client.db("wanderlandDB").collection("wishlists");
 
     //get operation
     app.get("/blogs", async (req, res) => {
@@ -61,6 +62,18 @@ async function run() {
           console.log(error);
         }
      
+    });
+
+    app.post("/wishlists", async (req, res) => {
+      try{
+        const newWishlist = req.body;
+        const result = await wishlistCollection.insertOne(newWishlist);
+        res.send(result);
+      console.log(result);
+        }
+        catch(error){
+          console.log(error);
+        }
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
