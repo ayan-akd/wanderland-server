@@ -49,6 +49,16 @@ async function run() {
         console.log(error);
       }
     });
+    app.get("/blogs/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await blogCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    })
 
     app.get("/wishlists", async (req, res) => {
       try {
@@ -78,16 +88,28 @@ async function run() {
     });
 
     app.post("/wishlists", async (req, res) => {
-      try{
+      try {
         const newWishlist = req.body;
-        const result = await wishlistCollection.insertOne(newWishlist);
-        res.send(result);
-      console.log(result);
+        const existingWishlist = await wishlistCollection.findOne({
+          email: newWishlist.email,
+          blogId: newWishlist.blogId
+        });
+    
+        if (existingWishlist) {
+          // A document with the same email and blogId already exists
+          res.status(409).json({ message: "Duplicate entry" });
+        } else {
+          // Insert the new document
+          const result = await wishlistCollection.insertOne(newWishlist);
+          res.status(201).json({ insertedId: result.insertedId });
         }
-        catch(error){
-          console.log(error);
-        }
+      } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
     });
+    
+    
 
     //Delete operation
     app.delete("/wishlists/:id", async (req, res) => {
