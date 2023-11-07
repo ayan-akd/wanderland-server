@@ -12,11 +12,14 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "https://akd-wanderland.web.app",
+      "https://akd-wanderland.firebaseapp.com/",
     ],
     credentials: true,
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 
 //  MONGODB DATABASE USER PASSWORD
 
@@ -32,15 +35,64 @@ const client = new MongoClient(uri, {
   },
 });
 
+//middlewares
+const logger = (req, res, next) => {
+  console.log("log info: ", req.method, req.url);
+  next();
+};
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  } else {
+    jwt.verify(token, process.env.SECRET, (err, decoded) => {
+      if (err) {
+        return res.status(401).send({ message: "Unauthorized Access" });
+      } else {
+        req.user = decoded;
+        next();
+      }
+    });
+  }
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
     const blogCollection = client.db("wanderlandDB").collection("blogs");
-    const wishlistCollection = client.db("wanderlandDB").collection("wishlists");
+    const wishlistCollection = client
+      .db("wanderlandDB")
+      .collection("wishlists");
     const commentsCollection = client.db("wanderlandDB").collection("comments");
 
+    //auth related api
+    app.post("/jwt", logger, async (req, res) => {
+      const user = req.body;
+      console.log("token for user: ", user);
+      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "1h" });
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+        })
+        .send({ success: true });
+    });
+
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logout for user: ", user);
+      res
+        .clearCookie("token", {
+          maxAge: 0,
+        })
+        .send({ success: true });
+    });
+
+    //services related api
     //get operation
     app.get("/blogs", async (req, res) => {
       try {
@@ -53,16 +105,20 @@ async function run() {
     app.get("/blogs/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const query = {_id: new ObjectId(id)}
+        const query = { _id: new ObjectId(id) };
         const result = await blogCollection.findOne(query);
         res.send(result);
       } catch (error) {
         console.log(error);
       }
-    })
+    });
 
-    app.get("/wishlists", async (req, res) => {
+    app.get("/wishlists", logger, verifyToken, async (req, res) => {
       try {
+        console.log("token owner : ", req.user);
+        if (req.user.email !== req.query.email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
         let query = {};
         if (req.query?.email) {
           query = { email: req.query.email };
@@ -85,17 +141,17 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
-    
+
     app.get("/update/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const query = {_id: new ObjectId(id)}
+        const query = { _id: new ObjectId(id) };
         const result = await blogCollection.findOne(query);
         res.send(result);
       } catch (error) {
         console.log(error);
       }
-    })
+    });
 
     app.get("/featured", async (req, res) => {
       try {
@@ -103,40 +159,35 @@ async function run() {
           .aggregate([
             {
               $addFields: {
-                longDisLength: { $strLenCP: "$longDis" }
-              }
+                longDisLength: { $strLenCP: "$longDis" },
+              },
             },
             {
-              $sort: { longDisLength: -1 }
+              $sort: { longDisLength: -1 },
             },
             {
-              $limit: 10
-            }
+              $limit: 10,
+            },
           ])
           .toArray();
-    
+
         res.send(result);
       } catch (error) {
         console.log(error);
         res.status(500).json({ message: "Internal server error" });
       }
     });
-    
-    
-    
 
     //post operation
     app.post("/blogs", async (req, res) => {
-      try{
+      try {
         const newBlog = req.body;
         const result = await blogCollection.insertOne(newBlog);
         res.send(result);
-      console.log(result);
-        }
-        catch(error){
-          console.log(error);
-        }
-     
+        console.log(result);
+      } catch (error) {
+        console.log(error);
+      }
     });
 
     app.post("/wishlists", async (req, res) => {
@@ -144,14 +195,12 @@ async function run() {
         const newWishlist = req.body;
         const existingWishlist = await wishlistCollection.findOne({
           email: newWishlist.email,
-          blogId: newWishlist.blogId
+          blogId: newWishlist.blogId,
         });
-    
+
         if (existingWishlist) {
-          // A document with the same email and blogId already exists
           res.status(409).json({ message: "Duplicate entry" });
         } else {
-          // Insert the new document
           const result = await wishlistCollection.insertOne(newWishlist);
           res.status(201).json({ insertedId: result.insertedId });
         }
@@ -160,7 +209,7 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
-    
+
     app.post("/comments", async (req, res) => {
       try {
         const newComment = req.body;
@@ -169,14 +218,13 @@ async function run() {
       } catch (error) {
         console.log(error);
       }
-    })
-    
+    });
 
     //Delete operation
     app.delete("/wishlists/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const query = {_id: new ObjectId(id)}
+        const query = { _id: new ObjectId(id) };
         const result = await wishlistCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
@@ -189,7 +237,7 @@ async function run() {
       try {
         const id = req.params.id;
         const data = req.body;
-        const filter = {_id: new ObjectId(id)}
+        const filter = { _id: new ObjectId(id) };
         const updatedBlog = {
           $set: {
             name: data.name,
@@ -198,14 +246,14 @@ async function run() {
             longDis: data.longDis,
             photo: data.photo,
             userPhoto: data.userPhoto,
-          }
-        }
+          },
+        };
         const result = await blogCollection.updateOne(filter, updatedBlog);
         res.send(result);
       } catch (error) {
         console.log(error);
       }
-    })
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
