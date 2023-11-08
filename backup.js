@@ -71,8 +71,8 @@ async function run() {
       res
         .cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          secure: true,
+          sameSite: "none",
         })
         .send({ success: true });
     });
@@ -110,7 +110,6 @@ async function run() {
 
     app.get("/wishlists", verifyToken, async (req, res) => {
       try {
-        console.log("From wishlists: ", req.user.email, req.query.email);
         if (req.user.email !== req.query.email) {
           return res.status(403).send({ message: "Forbidden Access" });
         }
@@ -139,15 +138,12 @@ async function run() {
 
     app.get("/update/:id", verifyToken, async (req, res) => {
       try {
-        // if (req.user.email !== req.query.email) {
-        //   return res.status(403).send({ message: "Email doesn't match" });
-        // }
+        if (req.user.email !== req.query.email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await blogCollection.findOne(query);
-        if (req.user.email !== result.email) {
-          return res.status(403).send({ message: "Email doesn't match" });
-        }
         res.send(result);
       } catch (error) {
         console.log(error);
@@ -182,13 +178,13 @@ async function run() {
     //post operation
     app.post("/blogs", verifyToken, async (req, res) => {
       try {
-        console.log("From blogs: ", req.user.email, req.body.email);
         if (req.user.email !== req.body.email) {
           return res.status(403).send({ message: "Forbidden Access" });
         }
         const newBlog = req.body;
         const result = await blogCollection.insertOne(newBlog);
         res.send(result);
+        console.log(result);
       } catch (error) {
         console.log(error);
       }
@@ -196,7 +192,6 @@ async function run() {
 
     app.post("/wishlists", verifyToken, async (req, res) => {
       try {
-        console.log("From wishlists Post: ", req.user.email, req.body.email);
         if (req.user.email !== req.body.email) {
           return res.status(403).send({ message: "Forbidden Access" });
         }
@@ -221,7 +216,7 @@ async function run() {
     app.post("/comments", verifyToken, async (req, res) => {
       try {
         if (req.user.email !== req.body.email) {
-          return res.status(403).send({ message: "Email doesn't match" });
+          return res.status(403).send({ message: "Forbidden Access" });
         }
         const newComment = req.body;
         const result = await commentsCollection.insertOne(newComment);
@@ -234,14 +229,11 @@ async function run() {
     //Delete operation
     app.delete("/wishlists/:id", verifyToken, async (req, res) => {
       try {
-        // console.log("From wishlists Delete: ", req.user.email, req.query.email);
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const findId = await wishlistCollection.findOne(query);
-        console.log("From wishlists Delete: ", req.user.email, findId.email);
-        if (req.user.email !== findId.email) {
+        if (req.user.email !== req.query.email) {
           return res.status(403).send({ message: "Forbidden Access" });
         }
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
         const result = await wishlistCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
@@ -252,15 +244,12 @@ async function run() {
     //Update operation
     app.put("/update/:id", verifyToken, async (req, res) => {
       try {
-        // console.log("From update details: ", req.user.email, req.body.email);
+        if (req.user.email !== req.body.email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
         const id = req.params.id;
         const data = req.body;
         const filter = { _id: new ObjectId(id) };
-        const findId = await blogCollection.findOne(filter);
-        console.log("From update details: ", req.user.email, findId.email);
-        if (req.user.email !== findId.email) {
-          return res.status(403).send({ message: "Forbidden Access" });
-        }
         const updatedBlog = {
           $set: {
             name: data.name,
